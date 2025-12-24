@@ -1,4 +1,4 @@
-﻿{
+{
   "expo": {
     "name": "Promessas 2026",
     "slug": "promessas-2026",
@@ -17,7 +17,8 @@
         "foregroundImage": "./assets/images/logo.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.patricksimoes.promessas2026"
     },
     "web": {
       "output": "static",
@@ -41,6 +42,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "26161720-cddd-4c51-9459-3760a02f2a7c"
+      }
     }
   }
 }
