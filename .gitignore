@@ -41,3 +41,9 @@ app-example
 # generated native folders
 /ios
 /android
+
+# JetBrains IDE
+.idea/caches/
+.idea/deviceManager.xml
+.idea/markdown.xml
+.idea/misc.xml
