@@ -1,15 +1,11 @@
 import React, { useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
-import {
-  BannerAd,
-  BannerAdSize,
-  TestIds,
-} from 'react-native-google-mobile-ads';
+import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 import { COLORS } from '../theme';
 
 const PROD_UNIT_ID = Platform.select({
-  ios: 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX',
-  android: 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX',
+  ios: 'ca-app-pub-7062093966916455/2331668376',
+  android: 'ca-app-pub-7062093966916455/2331668376',
 }) as string;
 
 const unitId = __DEV__ ? TestIds.BANNER : PROD_UNIT_ID;
