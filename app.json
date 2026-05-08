@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.patricksimoes.promessas2026"
     },
     "android": {
       "adaptiveIcon": {
@@ -36,6 +37,14 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      "expo-web-browser",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-7062093966916455~3170107329",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
         }
       ]
     ],

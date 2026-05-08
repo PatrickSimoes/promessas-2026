@@ -13,8 +13,10 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ActionSheet, ActionSheetAction } from './components/action-sheet';
+import { AdBanner } from './components/ad-banner';
 import { EditModal, EditModalSubmit } from './components/edit-modal';
 import { PromiseCard } from './components/promise-card';
+import { SearchBar } from './components/search-bar';
 import { COLORS } from './theme';
 import { CATEGORIES, Category, PromiseItem, Subtask } from './types';
 
@@ -32,6 +34,7 @@ export default function Index() {
 
   const [menuItemId, setMenuItemId] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -154,6 +157,16 @@ export default function Index() {
   const total = items.length;
   const progressPct = total === 0 ? 0 : Math.round((doneCount / total) * 100);
 
+  const filteredItems = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((p) => {
+      if (p.title.toLowerCase().includes(q)) return true;
+      if (p.category.toLowerCase().includes(q)) return true;
+      return p.subtasks.some((s) => s.title.toLowerCase().includes(q));
+    });
+  }, [items, query]);
+
   const menuItem = menuItemId ? items.find((p) => p.id === menuItemId) ?? null : null;
   const editingItem = editingItemId ? items.find((p) => p.id === editingItemId) ?? null : null;
 
@@ -242,19 +255,39 @@ export default function Index() {
             </Pressable>
           </View>
 
+          {/* Busca */}
+          <SearchBar
+            value={query}
+            onChange={setQuery}
+            resultCount={filteredItems.length}
+            totalCount={total}
+          />
+
           {/* Lista */}
           <FlatList
-            data={items}
+            data={filteredItems}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={[styles.listContent, items.length === 0 && styles.listEmpty]}
+            contentContainerStyle={[
+              styles.listContent,
+              filteredItems.length === 0 && styles.listEmpty,
+            ]}
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
-              <View style={styles.emptyBox}>
-                <Text style={styles.emptyTitle}>Começa leve</Text>
-                <Text style={styles.emptyText}>
-                  Escolha uma categoria e escreva uma promessa para o próximo ano.
-                </Text>
-              </View>
+              query.trim() ? (
+                <View style={styles.emptyBox}>
+                  <Text style={styles.emptyTitle}>Nada encontrado</Text>
+                  <Text style={styles.emptyText}>
+                    Nenhuma promessa combina com &quot;{query.trim()}&quot;.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.emptyBox}>
+                  <Text style={styles.emptyTitle}>Começa leve</Text>
+                  <Text style={styles.emptyText}>
+                    Escolha uma categoria e escreva uma promessa para o próximo ano.
+                  </Text>
+                </View>
+              )
             }
             renderItem={({ item }) => (
               <PromiseCard
@@ -268,9 +301,7 @@ export default function Index() {
             )}
           />
 
-          <Text style={styles.hint}>
-            Toque o card para expandir • ⋮ abre as ações
-          </Text>
+          <AdBanner />
         </View>
 
         <ActionSheet
