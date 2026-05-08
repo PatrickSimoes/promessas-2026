@@ -12,13 +12,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { ActionSheet, ActionSheetAction } from './components/action-sheet';
-import { AdBanner } from './components/ad-banner';
-import { EditModal, EditModalSubmit } from './components/edit-modal';
-import { PromiseCard } from './components/promise-card';
-import { SearchBar } from './components/search-bar';
-import { COLORS } from './theme';
-import { CATEGORIES, Category, PromiseItem, Subtask } from './types';
+import { ActionSheet, ActionSheetAction } from '../src/components/action-sheet';
+import { AdBanner } from '../src/components/ad-banner';
+import { EditModal, EditModalSubmit } from '../src/components/edit-modal';
+import { PromiseCard } from '../src/components/promise-card';
+import { SearchBar } from '../src/components/search-bar';
+import { COLORS } from '../src/theme';
+import { CATEGORIES, Category, PromiseItem, Subtask } from '../src/types';
 
 const STORAGE_KEY = '@promessas/items';
 
