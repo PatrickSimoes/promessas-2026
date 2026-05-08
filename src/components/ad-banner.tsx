@@ -1,7 +1,7 @@
 import Constants, { ExecutionEnvironment } from 'expo-constants';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
-import { COLORS } from '../theme';
+import { ThemeColors, useThemeColors } from '../theme';
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
@@ -26,6 +26,8 @@ if (!isExpoGo) {
 }
 
 export function AdBanner() {
+  const c = useThemeColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const [failed, setFailed] = useState(false);
 
   if (!BannerAd || failed) {
@@ -53,21 +55,29 @@ export function AdBanner() {
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    alignItems: 'center',
-    paddingTop: 8,
-  },
-  placeholder: {
-    width: 320,
-    height: 50,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  label: { color: COLORS.muted, fontSize: 11, fontWeight: '700', textAlign: 'center', paddingHorizontal: 8 },
-});
+function makeStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    wrap: {
+      alignItems: 'center',
+      paddingTop: 8,
+    },
+    placeholder: {
+      width: 320,
+      height: 50,
+      borderRadius: 10,
+      backgroundColor: c.card2,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderStyle: 'dashed',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    label: {
+      color: c.muted,
+      fontSize: 11,
+      fontWeight: '700',
+      textAlign: 'center',
+      paddingHorizontal: 8,
+    },
+  });
+}

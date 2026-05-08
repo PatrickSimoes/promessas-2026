@@ -12,14 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CATEGORIES, Category, PromiseItem } from '../types';
-import { COLORS, getTagStyle } from '../theme';
-import {
-  addDays,
-  endOfYear,
-  formatManualDate,
-  maskDateInput,
-  parseManualDate,
-} from '../utils';
+import { ThemeColors, getTagStyle, useThemeColors } from '../theme';
+import { addDays, endOfYear, formatManualDate, maskDateInput, parseManualDate } from '../utils';
 
 export type EditModalSubmit = {
   title: string;
@@ -43,6 +37,8 @@ const PRESETS: { key: string; label: string; getValue: () => number }[] = [
 ];
 
 export function EditModal({ visible, item, onClose, onSubmit }: Props) {
+  const c = useThemeColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<Category>('Pessoal');
   const [dateInput, setDateInput] = useState('');
@@ -75,7 +71,7 @@ export function EditModal({ visible, item, onClose, onSubmit }: Props) {
     onSubmit({
       title: title.trim(),
       category,
-      deadline: dateInput.length === 0 ? undefined : parsedDate ?? undefined,
+      deadline: dateInput.length === 0 ? undefined : (parsedDate ?? undefined),
     });
   }
 
@@ -97,10 +93,7 @@ export function EditModal({ visible, item, onClose, onSubmit }: Props) {
         <SafeAreaView edges={['bottom']} style={styles.sheet}>
           <View style={styles.handle} />
 
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.content}
-          >
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
             <Text style={styles.heading}>Editar promessa</Text>
 
             <Text style={styles.fieldLabel}>Título</Text>
@@ -108,7 +101,7 @@ export function EditModal({ visible, item, onClose, onSubmit }: Props) {
               value={title}
               onChangeText={setTitle}
               placeholder="O que você quer concretizar?"
-              placeholderTextColor={COLORS.mutedSoft}
+              placeholderTextColor={c.mutedSoft}
               style={styles.input}
             />
 
@@ -165,7 +158,7 @@ export function EditModal({ visible, item, onClose, onSubmit }: Props) {
                 setTouchedDate(true);
               }}
               placeholder="DD/MM/AAAA"
-              placeholderTextColor={COLORS.mutedSoft}
+              placeholderTextColor={c.mutedSoft}
               keyboardType="number-pad"
               maxLength={10}
               style={[styles.input, dateInvalid && styles.inputError]}
@@ -173,9 +166,7 @@ export function EditModal({ visible, item, onClose, onSubmit }: Props) {
             {dateInvalid ? (
               <Text style={styles.errorText}>data inválida</Text>
             ) : (
-              <Text style={styles.hintText}>
-                escolha um chip ou digite a data manualmente
-              </Text>
+              <Text style={styles.hintText}>escolha um chip ou digite a data manualmente</Text>
             )}
           </ScrollView>
 
@@ -205,103 +196,105 @@ export function EditModal({ visible, item, onClose, onSubmit }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: COLORS.overlay },
+function makeStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: c.overlay },
 
-  wrap: { flex: 1, justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: '#141A30',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderColor: COLORS.border,
-    maxHeight: '92%',
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: COLORS.borderStrong,
-    marginBottom: 8,
-  },
+    wrap: { flex: 1, justifyContent: 'flex-end' },
+    sheet: {
+      backgroundColor: c.cardElevated,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderColor: c.border,
+      maxHeight: '92%',
+    },
+    handle: {
+      alignSelf: 'center',
+      width: 40,
+      height: 4,
+      borderRadius: 999,
+      backgroundColor: c.borderStrong,
+      marginBottom: 8,
+    },
 
-  content: { padding: 18, paddingBottom: 12, gap: 8 },
+    content: { padding: 18, paddingBottom: 12, gap: 8 },
 
-  heading: { color: COLORS.text, fontSize: 18, fontWeight: '800', marginBottom: 6 },
+    heading: { color: c.text, fontSize: 18, fontWeight: '800', marginBottom: 6 },
 
-  fieldLabel: {
-    color: COLORS.mutedSoft,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    marginTop: 8,
-  },
+    fieldLabel: {
+      color: c.mutedSoft,
+      fontSize: 11,
+      fontWeight: '800',
+      letterSpacing: 0.6,
+      textTransform: 'uppercase',
+      marginTop: 8,
+    },
 
-  input: {
-    height: 44,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    color: COLORS.text,
-    backgroundColor: COLORS.card2,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    fontSize: 15,
-  },
-  inputError: { borderColor: COLORS.red },
-  errorText: { color: COLORS.red, fontSize: 12, marginTop: 4 },
-  hintText: { color: COLORS.mutedSoft, fontSize: 12, marginTop: 4 },
+    input: {
+      height: 44,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      color: c.text,
+      backgroundColor: c.card2,
+      borderWidth: 1,
+      borderColor: c.border,
+      fontSize: 15,
+    },
+    inputError: { borderColor: c.red },
+    errorText: { color: c.red, fontSize: 12, marginTop: 4 },
+    hintText: { color: c.mutedSoft, fontSize: 12, marginTop: 4 },
 
-  chipsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+    chipsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
 
-  catChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  catChipActive: { borderWidth: 1 },
-  catChipText: { color: COLORS.muted, fontWeight: '700', fontSize: 13 },
-  catChipTextActive: { color: COLORS.text },
+    catChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.card2,
+    },
+    catChipActive: { borderWidth: 1 },
+    catChipText: { color: c.muted, fontWeight: '700', fontSize: 13 },
+    catChipTextActive: { color: c.text },
 
-  presetChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  presetChipActive: {
-    backgroundColor: 'rgba(167,139,250,0.18)',
-    borderColor: 'rgba(167,139,250,0.35)',
-  },
-  presetChipText: { color: COLORS.muted, fontWeight: '700', fontSize: 13 },
+    presetChip: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.card2,
+    },
+    presetChipActive: {
+      backgroundColor: 'rgba(167,139,250,0.18)',
+      borderColor: 'rgba(167,139,250,0.35)',
+    },
+    presetChipText: { color: c.muted, fontWeight: '700', fontSize: 13 },
 
-  actions: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  btn: {
-    flex: 1,
-    height: 46,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnGhost: { backgroundColor: 'rgba(255,255,255,0.04)' },
-  btnGhostText: { color: COLORS.text, fontSize: 15, fontWeight: '700' },
-  btnPrimary: { backgroundColor: COLORS.brandStrong },
-  btnPrimaryText: { color: COLORS.text, fontSize: 15, fontWeight: '800' },
-  btnDisabled: { opacity: 0.4 },
+    actions: {
+      flexDirection: 'row',
+      gap: 10,
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      borderTopWidth: 1,
+      borderTopColor: c.border,
+    },
+    btn: {
+      flex: 1,
+      height: 46,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    btnGhost: { backgroundColor: c.card2 },
+    btnGhostText: { color: c.text, fontSize: 15, fontWeight: '700' },
+    btnPrimary: { backgroundColor: c.brandStrong },
+    btnPrimaryText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+    btnDisabled: { opacity: 0.4 },
 
-  pressed: { opacity: 0.7 },
-});
+    pressed: { opacity: 0.7 },
+  });
+}

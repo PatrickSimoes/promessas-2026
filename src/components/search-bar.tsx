@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { COLORS } from '../theme';
+import { ThemeColors, useThemeColors } from '../theme';
 
 type Props = {
   value: string;
@@ -10,6 +10,8 @@ type Props = {
 };
 
 export function SearchBar({ value, onChange, resultCount, totalCount }: Props) {
+  const c = useThemeColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const hasQuery = value.length > 0;
 
   return (
@@ -20,7 +22,7 @@ export function SearchBar({ value, onChange, resultCount, totalCount }: Props) {
           value={value}
           onChangeText={onChange}
           placeholder="Buscar promessas..."
-          placeholderTextColor={COLORS.mutedSoft}
+          placeholderTextColor={c.mutedSoft}
           style={styles.input}
           returnKeyType="search"
           autoCorrect={false}
@@ -46,45 +48,47 @@ export function SearchBar({ value, onChange, resultCount, totalCount }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.card2,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  icon: { fontSize: 14, color: COLORS.muted },
-  input: {
-    flex: 1,
-    color: COLORS.text,
-    fontSize: 14,
-    paddingVertical: 0,
-  },
-  clear: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  clearText: {
-    color: COLORS.muted,
-    fontSize: 16,
-    fontWeight: '700',
-    lineHeight: 18,
-  },
-  count: {
-    color: COLORS.mutedSoft,
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 6,
-    paddingHorizontal: 4,
-  },
-  pressed: { opacity: 0.6 },
-});
+function makeStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    wrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 12,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: c.card2,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    icon: { fontSize: 14, color: c.muted },
+    input: {
+      flex: 1,
+      color: c.text,
+      fontSize: 14,
+      paddingVertical: 0,
+    },
+    clear: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.cardElevated,
+    },
+    clearText: {
+      color: c.muted,
+      fontSize: 16,
+      fontWeight: '700',
+      lineHeight: 18,
+    },
+    count: {
+      color: c.mutedSoft,
+      fontSize: 11,
+      fontWeight: '700',
+      marginTop: 6,
+      paddingHorizontal: 4,
+    },
+    pressed: { opacity: 0.6 },
+  });
+}

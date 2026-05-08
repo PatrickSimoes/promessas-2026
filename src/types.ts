@@ -2,6 +2,12 @@ export type Category = 'Saúde' | 'Carreira' | 'Finanças' | 'Pessoal';
 
 export const CATEGORIES: Category[] = ['Saúde', 'Carreira', 'Finanças', 'Pessoal'];
 
+export type CategoryFilter = Category | 'Todas';
+
+export const CATEGORY_FILTERS: CategoryFilter[] = ['Todas', ...CATEGORIES];
+
+export const TITLE_MAX_LENGTH = 120;
+
 export type Subtask = {
   id: string;
   title: string;

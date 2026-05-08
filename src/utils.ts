@@ -74,3 +74,21 @@ export function endOfYear(ts: number): number {
   const d = new Date(ts);
   return new Date(d.getFullYear(), 11, 31, 12, 0, 0, 0).getTime();
 }
+
+export function daysUntilNextYear(ts: number = Date.now()): number {
+  const now = new Date(ts);
+  const nextYear = new Date(now.getFullYear() + 1, 0, 1, 0, 0, 0, 0);
+  return Math.max(0, Math.ceil((nextYear.getTime() - now.getTime()) / DAY_MS));
+}
+
+export function percentOfYearPassed(ts: number = Date.now()): number {
+  const now = new Date(ts);
+  const start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0).getTime();
+  const end = new Date(now.getFullYear() + 1, 0, 1, 0, 0, 0, 0).getTime();
+  const pct = ((ts - start) / (end - start)) * 100;
+  return Math.round(Math.min(100, Math.max(0, pct)));
+}
+
+export function nextYearLabel(ts: number = Date.now()): number {
+  return new Date(ts).getFullYear() + 1;
+}

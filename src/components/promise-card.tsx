@@ -1,11 +1,21 @@
-import React, { useMemo, useState } from 'react';
-import { LayoutAnimation, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated, {
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { ThemeColors, getTagStyle, useThemeColors } from '../theme';
 import { PromiseItem, Subtask } from '../types';
-import { COLORS, getTagStyle } from '../theme';
 import { daysUntil, deadlineLabel, formatShortDate } from '../utils';
 
 type Props = {
   item: PromiseItem;
+  expanded: boolean;
+  onToggleExpanded: (id: string) => void;
   onToggle: (id: string) => void;
   onOpenMenu: (id: string) => void;
   onAddSubtask: (id: string, title: string) => void;
@@ -15,30 +25,44 @@ type Props = {
 
 export function PromiseCard({
   item,
+  expanded,
+  onToggleExpanded,
   onToggle,
   onOpenMenu,
   onAddSubtask,
   onToggleSubtask,
   onRequestDeleteSubtask,
 }: Props) {
-  const [expanded, setExpanded] = useState(false);
+  const c = useThemeColors();
+  const styles = useMemo(() => makeStyles(c), [c]);
   const [subText, setSubText] = useState('');
+  const checkScale = useSharedValue(1);
 
   const hasSubtasks = item.subtasks.length > 0;
   const subDoneCount = useMemo(() => item.subtasks.filter((s) => s.done).length, [item.subtasks]);
 
   const deadlineColor = useMemo(() => {
-    if (!item.deadline || item.done) return COLORS.muted;
+    if (!item.deadline || item.done) return c.muted;
     const days = daysUntil(item.deadline);
-    if (days < 0) return COLORS.red;
-    if (days <= 3) return COLORS.sun;
-    return COLORS.muted;
-  }, [item.deadline, item.done]);
+    if (days < 0) return c.red;
+    if (days <= 3) return c.sun;
+    return c.muted;
+  }, [item.deadline, item.done, c]);
 
-  function toggleExpanded() {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpanded((v) => !v);
-  }
+  useEffect(() => {
+    if (item.done) {
+      checkScale.value = withSequence(
+        withSpring(1.3, { damping: 6, stiffness: 220 }),
+        withSpring(1, { damping: 8, stiffness: 180 }),
+      );
+    } else {
+      checkScale.value = withTiming(1, { duration: 120 });
+    }
+  }, [item.done, checkScale]);
+
+  const checkAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: checkScale.value }],
+  }));
 
   function submitSubtask() {
     const title = subText.trim();
@@ -48,17 +72,22 @@ export function PromiseCard({
   }
 
   return (
-    <View style={[styles.card, item.done && styles.cardDone]}>
+    <Animated.View
+      layout={LinearTransition.duration(220)}
+      style={[styles.card, item.done && styles.cardDone]}
+    >
       <View style={styles.headerRow}>
         <Pressable
           onPress={() => onToggle(item.id)}
           hitSlop={8}
           style={[styles.checkbox, item.done && styles.checkboxDone]}
         >
-          {item.done ? <Text style={styles.check}>✓</Text> : null}
+          {item.done ? (
+            <Animated.Text style={[styles.check, checkAnimStyle]}>✓</Animated.Text>
+          ) : null}
         </Pressable>
 
-        <Pressable onPress={toggleExpanded} style={styles.headerBody}>
+        <Pressable onPress={() => onToggleExpanded(item.id)} style={styles.headerBody}>
           <Text style={[styles.cardTitle, item.done && styles.cardTitleDone]} numberOfLines={2}>
             {item.title}
           </Text>
@@ -88,7 +117,7 @@ export function PromiseCard({
           <View style={styles.dateRow}>
             <Text style={styles.dateText}>criada {formatShortDate(item.createdAt)}</Text>
             {item.completedAt ? (
-              <Text style={[styles.dateText, { color: COLORS.green }]}>
+              <Text style={[styles.dateText, { color: c.green }]}>
                 • feita {formatShortDate(item.completedAt)}
               </Text>
             ) : null}
@@ -117,6 +146,7 @@ export function PromiseCard({
               <SubtaskRow
                 key={sub.id}
                 sub={sub}
+                styles={styles}
                 onToggle={() => onToggleSubtask(item.id, sub.id)}
                 onDelete={() => onRequestDeleteSubtask(item.id, sub.id)}
               />
@@ -128,10 +158,11 @@ export function PromiseCard({
               value={subText}
               onChangeText={setSubText}
               placeholder="Nova subtarefa..."
-              placeholderTextColor={COLORS.mutedSoft}
+              placeholderTextColor={c.mutedSoft}
               style={styles.subInput}
               returnKeyType="done"
               onSubmitEditing={submitSubtask}
+              maxLength={120}
             />
             <Pressable
               onPress={submitSubtask}
@@ -147,22 +178,28 @@ export function PromiseCard({
           </View>
         </View>
       ) : null}
-    </View>
+    </Animated.View>
   );
 }
 
 function SubtaskRow({
   sub,
+  styles,
   onToggle,
   onDelete,
 }: {
   sub: Subtask;
+  styles: ReturnType<typeof makeStyles>;
   onToggle: () => void;
   onDelete: () => void;
 }) {
   return (
     <View style={styles.subRow}>
-      <Pressable onPress={onToggle} hitSlop={8} style={[styles.subCheck, sub.done && styles.subCheckDone]}>
+      <Pressable
+        onPress={onToggle}
+        hitSlop={8}
+        style={[styles.subCheck, sub.done && styles.subCheckDone]}
+      >
         {sub.done ? <Text style={styles.subCheckText}>✓</Text> : null}
       </Pressable>
 
@@ -186,133 +223,135 @@ function SubtaskRow({
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    padding: 14,
-    borderRadius: 18,
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 10,
-  },
-  cardDone: {
-    borderColor: 'rgba(52,211,153,0.28)',
-    backgroundColor: 'rgba(52,211,153,0.08)',
-  },
+function makeStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    card: {
+      padding: 14,
+      borderRadius: 18,
+      backgroundColor: c.card,
+      borderWidth: 1,
+      borderColor: c.border,
+      marginBottom: 10,
+    },
+    cardDone: {
+      borderColor: 'rgba(52,211,153,0.28)',
+      backgroundColor: 'rgba(52,211,153,0.08)',
+    },
 
-  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+    headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
 
-  checkbox: {
-    width: 26,
-    height: 26,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  checkboxDone: {
-    backgroundColor: 'rgba(52,211,153,0.18)',
-    borderColor: 'rgba(52,211,153,0.45)',
-  },
-  check: { color: COLORS.green, fontSize: 16, fontWeight: '900', marginTop: -1 },
+    checkbox: {
+      width: 26,
+      height: 26,
+      borderRadius: 10,
+      backgroundColor: c.card2,
+      borderWidth: 1,
+      borderColor: c.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 2,
+    },
+    checkboxDone: {
+      backgroundColor: 'rgba(52,211,153,0.18)',
+      borderColor: 'rgba(52,211,153,0.45)',
+    },
+    check: { color: c.green, fontSize: 16, fontWeight: '900', marginTop: -1 },
 
-  headerBody: { flex: 1, gap: 8 },
-  cardTitle: { color: COLORS.text, fontSize: 16, fontWeight: '700' },
-  cardTitleDone: { textDecorationLine: 'line-through', color: COLORS.muted },
+    headerBody: { flex: 1, gap: 8 },
+    cardTitle: { color: c.text, fontSize: 16, fontWeight: '700' },
+    cardTitleDone: { textDecorationLine: 'line-through', color: c.muted },
 
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  tag: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
-  tagText: { color: COLORS.text, fontSize: 12, fontWeight: '800', opacity: 0.9 },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+    tag: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
+    tagText: { color: c.text, fontSize: 12, fontWeight: '800', opacity: 0.9 },
 
-  metaPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  metaPillText: { color: COLORS.muted, fontSize: 12, fontWeight: '700' },
+    metaPill: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 999,
+      backgroundColor: c.card2,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    metaPillText: { color: c.muted, fontSize: 12, fontWeight: '700' },
 
-  dateRow: { flexDirection: 'row', gap: 4, marginTop: 2, flexWrap: 'wrap' },
-  dateText: { color: COLORS.mutedSoft, fontSize: 11, fontWeight: '600' },
+    dateRow: { flexDirection: 'row', gap: 4, marginTop: 2, flexWrap: 'wrap' },
+    dateText: { color: c.mutedSoft, fontSize: 11, fontWeight: '600' },
 
-  kebab: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 16,
-  },
-  kebabText: { color: COLORS.muted, fontSize: 22, fontWeight: '900', lineHeight: 22 },
+    kebab: {
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 16,
+    },
+    kebabText: { color: c.muted, fontSize: 22, fontWeight: '900', lineHeight: 22 },
 
-  expanded: { marginTop: 10 },
-  divider: { height: 1, backgroundColor: COLORS.border, marginBottom: 10 },
+    expanded: { marginTop: 10 },
+    divider: { height: 1, backgroundColor: c.border, marginBottom: 10 },
 
-  sectionLabel: {
-    color: COLORS.mutedSoft,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    marginBottom: 6,
-  },
+    sectionLabel: {
+      color: c.mutedSoft,
+      fontSize: 11,
+      fontWeight: '800',
+      letterSpacing: 0.6,
+      textTransform: 'uppercase',
+      marginBottom: 6,
+    },
 
-  subEmpty: { color: COLORS.mutedSoft, fontSize: 13, fontStyle: 'italic', paddingVertical: 4 },
+    subEmpty: { color: c.mutedSoft, fontSize: 13, fontStyle: 'italic', paddingVertical: 4 },
 
-  subRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 6,
-  },
-  subCheck: {
-    width: 20,
-    height: 20,
-    borderRadius: 7,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  subCheckDone: {
-    backgroundColor: 'rgba(52,211,153,0.18)',
-    borderColor: 'rgba(52,211,153,0.45)',
-  },
-  subCheckText: { color: COLORS.green, fontSize: 12, fontWeight: '900' },
-  subTitle: { color: COLORS.text, fontSize: 14, fontWeight: '600' },
-  subTitleDone: { textDecorationLine: 'line-through', color: COLORS.muted },
-  subDate: { color: COLORS.mutedSoft, fontSize: 10, marginTop: 1 },
+    subRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 6,
+    },
+    subCheck: {
+      width: 20,
+      height: 20,
+      borderRadius: 7,
+      backgroundColor: c.card2,
+      borderWidth: 1,
+      borderColor: c.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    subCheckDone: {
+      backgroundColor: 'rgba(52,211,153,0.18)',
+      borderColor: 'rgba(52,211,153,0.45)',
+    },
+    subCheckText: { color: c.green, fontSize: 12, fontWeight: '900' },
+    subTitle: { color: c.text, fontSize: 14, fontWeight: '600' },
+    subTitleDone: { textDecorationLine: 'line-through', color: c.muted },
+    subDate: { color: c.mutedSoft, fontSize: 10, marginTop: 1 },
 
-  subDelete: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
-  subDeleteText: { color: COLORS.mutedSoft, fontSize: 20, fontWeight: '700', lineHeight: 20 },
+    subDelete: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+    subDeleteText: { color: c.mutedSoft, fontSize: 20, fontWeight: '700', lineHeight: 20 },
 
-  subInputWrap: { flexDirection: 'row', gap: 8, marginTop: 8, alignItems: 'center' },
-  subInput: {
-    flex: 1,
-    height: 38,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    color: COLORS.text,
-    backgroundColor: COLORS.card2,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    fontSize: 14,
-  },
-  subAdd: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: 'rgba(167,139,250,0.85)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  subAddDisabled: { backgroundColor: 'rgba(167,139,250,0.25)' },
-  subAddText: { color: COLORS.text, fontSize: 18, fontWeight: '900', marginTop: -2 },
+    subInputWrap: { flexDirection: 'row', gap: 8, marginTop: 8, alignItems: 'center' },
+    subInput: {
+      flex: 1,
+      height: 38,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      color: c.text,
+      backgroundColor: c.card2,
+      borderWidth: 1,
+      borderColor: c.border,
+      fontSize: 14,
+    },
+    subAdd: {
+      width: 38,
+      height: 38,
+      borderRadius: 10,
+      backgroundColor: c.brand,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    subAddDisabled: { backgroundColor: 'rgba(167,139,250,0.25)' },
+    subAddText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', marginTop: -2 },
 
-  pressed: { opacity: 0.6 },
-});
+    pressed: { opacity: 0.6 },
+  });
+}
