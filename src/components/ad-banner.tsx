@@ -6,7 +6,7 @@ import { ThemeColors, useThemeColors } from '../theme';
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 const PROD_UNIT_ID = Platform.select({
-  ios: 'ca-app-pub-7062093966916455/2331668376',
+  ios: 'ca-app-pub-7062093966916455/2562292181',
   android: 'ca-app-pub-7062093966916455/2331668376',
 }) as string;
 
