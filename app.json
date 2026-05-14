@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.patricksimoes.promessas2026"
+      "bundleIdentifier": "com.psimoes.metas"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +19,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.patricksimoes.promessas2026",
+      "package": "com.psimoes.metas",
       "versionCode": 1
     },
     "web": {
