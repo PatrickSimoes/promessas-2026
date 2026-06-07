@@ -14,7 +14,7 @@ import { Category, PromiseItem, Subtask } from './types';
 const STORAGE_KEY = '@promessas/items';
 const EXPANDED_KEY = '@promessas/expanded';
 
-type AddInput = { title: string; category: Category };
+type AddInput = { title: string; category: Category; deadline?: number };
 type UpdateInput = { title: string; category: Category; deadline: number | undefined };
 
 type Ctx = {
@@ -80,7 +80,7 @@ export function PromisesProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem(EXPANDED_KEY, JSON.stringify(Array.from(expandedIds)));
   }, [expandedIds, isHydrating]);
 
-  const addItem = useCallback(({ title, category }: AddInput) => {
+  const addItem = useCallback(({ title, category, deadline }: AddInput) => {
     tapLight();
     const newItem: PromiseItem = {
       id: Date.now().toString(),
@@ -88,6 +88,7 @@ export function PromisesProvider({ children }: { children: ReactNode }) {
       done: false,
       category,
       createdAt: Date.now(),
+      deadline,
       subtasks: [],
     };
     setItems((prev) => [newItem, ...prev]);

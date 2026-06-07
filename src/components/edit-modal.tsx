@@ -1,19 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { CATEGORIES, Category, PromiseItem } from '../types';
-import { ThemeColors, getTagStyle, useThemeColors } from '../theme';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSettings } from '../settings-context';
+import { Category, PromiseItem } from '../types';
+import { ThemeColors, tagStyle, useThemeColors } from '../theme';
 import { addDays, endOfYear, formatManualDate, maskDateInput, parseManualDate } from '../utils';
+import { BottomSheet } from './bottom-sheet';
 
 export type EditModalSubmit = {
   title: string;
@@ -39,18 +30,22 @@ const PRESETS: { key: string; label: string; getValue: () => number }[] = [
 export function EditModal({ visible, item, onClose, onSubmit }: Props) {
   const c = useThemeColors();
   const styles = useMemo(() => makeStyles(c), [c]);
+  const { categories, categoryColor } = useSettings();
+  const isEditing = item !== null;
+  const defaultCategory = categories[0]?.name ?? '';
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<Category>('Pessoal');
+  const [category, setCategory] = useState<Category>(defaultCategory);
   const [dateInput, setDateInput] = useState('');
   const [touchedDate, setTouchedDate] = useState(false);
 
+  // Reset the form whenever it opens — populated for edit, blank for create.
   useEffect(() => {
-    if (!item) return;
-    setTitle(item.title);
-    setCategory(item.category);
-    setDateInput(item.deadline ? formatManualDate(item.deadline) : '');
+    if (!visible) return;
+    setTitle(item?.title ?? '');
+    setCategory(item?.category ?? defaultCategory);
+    setDateInput(item?.deadline ? formatManualDate(item.deadline) : '');
     setTouchedDate(false);
-  }, [item]);
+  }, [visible, item, defaultCategory]);
 
   const parsedDate = useMemo(() => parseManualDate(dateInput), [dateInput]);
   const dateInvalid = dateInput.length > 0 && parsedDate === null;
@@ -76,149 +71,110 @@ export function EditModal({ visible, item, onClose, onSubmit }: Props) {
   }
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      statusBarTranslucent
-      onRequestClose={onClose}
-    >
-      <Pressable style={styles.backdrop} onPress={onClose} />
+    <BottomSheet visible={visible} onClose={onClose} avoidKeyboard maxHeight="92%">
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+        <Text style={styles.heading}>{isEditing ? 'Editar promessa' : 'Nova promessa'}</Text>
 
-      <KeyboardAvoidingView
-        pointerEvents="box-none"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.wrap}
-      >
-        <SafeAreaView edges={['bottom']} style={styles.sheet}>
-          <View style={styles.handle} />
+        <Text style={styles.fieldLabel}>Título</Text>
+        <TextInput
+          value={title}
+          onChangeText={setTitle}
+          placeholder="O que você quer concretizar?"
+          placeholderTextColor={c.mutedSoft}
+          style={styles.input}
+        />
 
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-            <Text style={styles.heading}>Editar promessa</Text>
-
-            <Text style={styles.fieldLabel}>Título</Text>
-            <TextInput
-              value={title}
-              onChangeText={setTitle}
-              placeholder="O que você quer concretizar?"
-              placeholderTextColor={c.mutedSoft}
-              style={styles.input}
-            />
-
-            <Text style={styles.fieldLabel}>Categoria</Text>
-            <View style={styles.chipsRow}>
-              {CATEGORIES.map((cat) => {
-                const active = cat === category;
-                return (
-                  <Pressable
-                    key={cat}
-                    onPress={() => setCategory(cat)}
-                    style={({ pressed }) => [
-                      styles.catChip,
-                      active && styles.catChipActive,
-                      active && getTagStyle(cat),
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Text style={[styles.catChipText, active && styles.catChipTextActive]}>
-                      {cat}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.fieldLabel}>Prazo (opcional)</Text>
-            <View style={styles.chipsRow}>
+        <Text style={styles.fieldLabel}>Categoria</Text>
+        <View style={styles.chipsRow}>
+          {categories.map((cat) => {
+            const active = cat.name === category;
+            return (
               <Pressable
-                onPress={clearDate}
+                key={cat.name}
+                onPress={() => setCategory(cat.name)}
                 style={({ pressed }) => [
-                  styles.presetChip,
-                  dateInput.length === 0 && touchedDate && styles.presetChipActive,
+                  styles.catChip,
+                  active && styles.catChipActive,
+                  active && tagStyle(categoryColor(cat.name)),
                   pressed && styles.pressed,
                 ]}
               >
-                <Text style={styles.presetChipText}>Sem prazo</Text>
+                <Text style={[styles.catChipText, active && styles.catChipTextActive]}>
+                  {cat.name}
+                </Text>
               </Pressable>
-              {PRESETS.map((p) => (
-                <Pressable
-                  key={p.key}
-                  onPress={() => applyPreset(p.getValue)}
-                  style={({ pressed }) => [styles.presetChip, pressed && styles.pressed]}
-                >
-                  <Text style={styles.presetChipText}>{p.label}</Text>
-                </Pressable>
-              ))}
-            </View>
+            );
+          })}
+        </View>
 
-            <TextInput
-              value={dateInput}
-              onChangeText={(raw) => {
-                setDateInput(maskDateInput(raw));
-                setTouchedDate(true);
-              }}
-              placeholder="DD/MM/AAAA"
-              placeholderTextColor={c.mutedSoft}
-              keyboardType="number-pad"
-              maxLength={10}
-              style={[styles.input, dateInvalid && styles.inputError]}
-            />
-            {dateInvalid ? (
-              <Text style={styles.errorText}>data inválida</Text>
-            ) : (
-              <Text style={styles.hintText}>escolha um chip ou digite a data manualmente</Text>
-            )}
-          </ScrollView>
+        <Text style={styles.fieldLabel}>Prazo (opcional)</Text>
+        <View style={styles.chipsRow}>
+          <Pressable
+            onPress={clearDate}
+            style={({ pressed }) => [
+              styles.presetChip,
+              dateInput.length === 0 && touchedDate && styles.presetChipActive,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.presetChipText}>Sem prazo</Text>
+          </Pressable>
+          {PRESETS.map((p) => (
+            <Pressable
+              key={p.key}
+              onPress={() => applyPreset(p.getValue)}
+              style={({ pressed }) => [styles.presetChip, pressed && styles.pressed]}
+            >
+              <Text style={styles.presetChipText}>{p.label}</Text>
+            </Pressable>
+          ))}
+        </View>
 
-          <View style={styles.actions}>
-            <Pressable
-              onPress={onClose}
-              style={({ pressed }) => [styles.btn, styles.btnGhost, pressed && styles.pressed]}
-            >
-              <Text style={styles.btnGhostText}>Cancelar</Text>
-            </Pressable>
-            <Pressable
-              onPress={submit}
-              disabled={!canSave}
-              style={({ pressed }) => [
-                styles.btn,
-                styles.btnPrimary,
-                !canSave && styles.btnDisabled,
-                pressed && canSave && styles.pressed,
-              ]}
-            >
-              <Text style={styles.btnPrimaryText}>Salvar</Text>
-            </Pressable>
-          </View>
-        </SafeAreaView>
-      </KeyboardAvoidingView>
-    </Modal>
+        <TextInput
+          value={dateInput}
+          onChangeText={(raw) => {
+            setDateInput(maskDateInput(raw));
+            setTouchedDate(true);
+          }}
+          placeholder="DD/MM/AAAA"
+          placeholderTextColor={c.mutedSoft}
+          keyboardType="number-pad"
+          maxLength={10}
+          style={[styles.input, dateInvalid && styles.inputError]}
+        />
+        {dateInvalid ? (
+          <Text style={styles.errorText}>data inválida</Text>
+        ) : (
+          <Text style={styles.hintText}>escolha um chip ou digite a data manualmente</Text>
+        )}
+      </ScrollView>
+
+      <View style={styles.actions}>
+        <Pressable
+          onPress={onClose}
+          style={({ pressed }) => [styles.btn, styles.btnGhost, pressed && styles.pressed]}
+        >
+          <Text style={styles.btnGhostText}>Cancelar</Text>
+        </Pressable>
+        <Pressable
+          onPress={submit}
+          disabled={!canSave}
+          style={({ pressed }) => [
+            styles.btn,
+            styles.btnPrimary,
+            !canSave && styles.btnDisabled,
+            pressed && canSave && styles.pressed,
+          ]}
+        >
+          <Text style={styles.btnPrimaryText}>Salvar</Text>
+        </Pressable>
+      </View>
+    </BottomSheet>
   );
 }
 
 function makeStyles(c: ThemeColors) {
   return StyleSheet.create({
-    backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: c.overlay },
-
-    wrap: { flex: 1, justifyContent: 'flex-end' },
-    sheet: {
-      backgroundColor: c.cardElevated,
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      paddingTop: 8,
-      borderTopWidth: 1,
-      borderColor: c.border,
-      maxHeight: '92%',
-    },
-    handle: {
-      alignSelf: 'center',
-      width: 40,
-      height: 4,
-      borderRadius: 999,
-      backgroundColor: c.borderStrong,
-      marginBottom: 8,
-    },
-
     content: { padding: 18, paddingBottom: 12, gap: 8 },
 
     heading: { color: c.text, fontSize: 18, fontWeight: '800', marginBottom: 6 },

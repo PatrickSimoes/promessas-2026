@@ -10,14 +10,19 @@ import {
   isRemindersEnabled,
 } from '../../src/notifications';
 import { usePromises } from '../../src/promises-context';
-import { ThemeColors, getTagStyle, useThemeColors } from '../../src/theme';
-import { CATEGORIES, Category } from '../../src/types';
+import { useSettings } from '../../src/settings-context';
+import { ThemeColors, tagStyle, useThemeColors } from '../../src/theme';
+import { Category } from '../../src/types';
 import {
+  daysUntil,
   daysUntilNextYear,
+  deadlineLabel,
   formatShortDate,
   nextYearLabel,
   percentOfYearPassed,
 } from '../../src/utils';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 type CategoryStat = {
   category: Category;
@@ -30,6 +35,7 @@ export default function ReportScreen() {
   const c = useThemeColors();
   const styles = useMemo(() => makeStyles(c), [c]);
   const { items } = usePromises();
+  const { categories, categoryColor } = useSettings();
   const interstitial = useInterstitial({ cooldownMs: 60_000 });
   const [remindersOn, setRemindersOn] = useState(false);
   const [remindersBusy, setRemindersBusy] = useState(false);
@@ -74,23 +80,65 @@ export default function ReportScreen() {
 
   const stats: CategoryStat[] = useMemo(
     () =>
-      CATEGORIES.map((cat) => {
-        const inCat = items.filter((p) => p.category === cat);
+      categories.map((cat) => {
+        const inCat = items.filter((p) => p.category === cat.name);
         const done = inCat.filter((p) => p.done).length;
         return {
-          category: cat,
+          category: cat.name,
           total: inCat.length,
           done,
           pct: inCat.length === 0 ? 0 : Math.round((done / inCat.length) * 100),
         };
       }),
-    [items],
+    [items, categories],
   );
 
   const completed = useMemo(
     () => items.filter((p) => p.done).sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0)),
     [items],
   );
+
+  // Ritmo: quantas foram concluídas nos últimos 30 dias.
+  const recentDone = useMemo(() => {
+    const cutoff = Date.now() - 30 * DAY_MS;
+    return items.filter((p) => p.done && (p.completedAt ?? 0) >= cutoff).length;
+  }, [items]);
+
+  // Só categorias com promessas, ordenadas por progresso (maior primeiro).
+  const visibleStats = useMemo(
+    () => stats.filter((s) => s.total > 0).sort((a, b) => b.pct - a.pct || b.total - a.total),
+    [stats],
+  );
+
+  // Composição da carteira de promessas por categoria, pra barra de distribuição.
+  const distribution = useMemo(
+    () =>
+      visibleStats.map((s) => ({
+        name: s.category,
+        color: categoryColor(s.category),
+        share: total > 0 ? (s.total / total) * 100 : 0,
+      })),
+    [visibleStats, total, categoryColor],
+  );
+
+  // Promessas em aberto vencidas ou vencendo nos próximos 7 dias.
+  const upcoming = useMemo(
+    () =>
+      items
+        .filter((p) => !p.done && p.deadline)
+        .map((p) => ({
+          id: p.id,
+          title: p.title,
+          category: p.category,
+          deadline: p.deadline as number,
+          days: daysUntil(p.deadline as number),
+        }))
+        .filter((p) => p.days <= 7)
+        .sort((a, b) => a.deadline - b.deadline),
+    [items],
+  );
+  const overdueCount = upcoming.filter((p) => p.days < 0).length;
+  const dueSoonCount = upcoming.length - overdueCount;
 
   const daysLeft = daysUntilNextYear();
   const yearPct = percentOfYearPassed();
@@ -126,39 +174,94 @@ export default function ReportScreen() {
               <Text style={styles.bigNumberLight}>/{total}</Text>
             </Text>
             <Text style={styles.subtitle}>
-              {progressPct}% concluídas • {daysLeft} dias até {targetYear} • {yearPct}% do ano
-              vivido
+              {progressPct}% concluídas • {daysLeft} dias até {targetYear} • {yearPct}% do ano já se
+              passou
             </Text>
 
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
             </View>
+
+            {recentDone > 0 ? (
+              <Text style={styles.recentLine}>
+                🔥 {recentDone} concluída{recentDone > 1 ? 's' : ''} nos últimos 30 dias
+              </Text>
+            ) : null}
           </View>
+
+          {upcoming.length > 0 ? (
+            <>
+              <Text style={styles.sectionLabel}>Prazos</Text>
+              <View style={styles.statsBox}>
+                <Text style={styles.deadlineSummary}>
+                  {overdueCount > 0 ? (
+                    <Text style={{ color: c.red }}>
+                      ⏰ {overdueCount} vencida{overdueCount > 1 ? 's' : ''}
+                    </Text>
+                  ) : null}
+                  {overdueCount > 0 && dueSoonCount > 0 ? '  •  ' : ''}
+                  {dueSoonCount > 0 ? (
+                    <Text style={{ color: c.sun }}>🟡 {dueSoonCount} vencendo em breve</Text>
+                  ) : null}
+                </Text>
+                {upcoming.map((p) => (
+                  <View key={p.id} style={styles.deadlineRow}>
+                    <View style={[styles.tag, tagStyle(categoryColor(p.category))]}>
+                      <Text style={styles.tagText}>{p.category}</Text>
+                    </View>
+                    <Text style={styles.deadlineTitle} numberOfLines={1}>
+                      {p.title}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.deadlineWhen,
+                        { color: p.days < 0 ? c.red : p.days <= 3 ? c.sun : c.muted },
+                      ]}
+                    >
+                      {deadlineLabel(p.deadline)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : null}
 
           <Text style={styles.sectionLabel}>Por categoria</Text>
           <View style={styles.statsBox}>
-            {stats.map((s) => (
-              <View key={s.category} style={styles.statRow}>
-                <View style={styles.statHeader}>
-                  <View style={[styles.tag, getTagStyle(s.category)]}>
-                    <Text style={styles.tagText}>{s.category}</Text>
+            {visibleStats.length === 0 ? (
+              <Text style={styles.emptyText}>
+                Crie promessas pra ver a distribuição por categoria.
+              </Text>
+            ) : (
+              <>
+                <View style={styles.distBar}>
+                  {distribution.map((d) => (
+                    <View key={d.name} style={{ width: `${d.share}%`, backgroundColor: d.color }} />
+                  ))}
+                </View>
+                {visibleStats.map((s) => (
+                  <View key={s.category} style={styles.statRow}>
+                    <View style={styles.statHeader}>
+                      <View style={[styles.tag, tagStyle(categoryColor(s.category))]}>
+                        <Text style={styles.tagText}>{s.category}</Text>
+                      </View>
+                      <Text style={styles.statText}>
+                        {s.done}/{s.total} • {s.pct}%
+                      </Text>
+                    </View>
+                    <View style={styles.statTrack}>
+                      <View
+                        style={[
+                          styles.statFill,
+                          { width: `${s.pct}%` },
+                          s.pct >= 100 && styles.statFillDone,
+                        ]}
+                      />
+                    </View>
                   </View>
-                  <Text style={styles.statText}>
-                    {s.done}/{s.total}
-                    {s.total > 0 ? ` • ${s.pct}%` : ''}
-                  </Text>
-                </View>
-                <View style={styles.statTrack}>
-                  <View
-                    style={[
-                      styles.statFill,
-                      { width: `${s.pct}%` },
-                      s.pct >= 100 && styles.statFillDone,
-                    ]}
-                  />
-                </View>
-              </View>
-            ))}
+                ))}
+              </>
+            )}
           </View>
 
           <Text style={styles.sectionLabel}>
@@ -257,6 +360,7 @@ function makeStyles(c: ThemeColors) {
       overflow: 'hidden',
     },
     progressFill: { height: '100%', borderRadius: 999, backgroundColor: c.brandStrong },
+    recentLine: { color: c.text, fontSize: 13, fontWeight: '700', marginTop: 12 },
 
     sectionLabel: {
       color: c.mutedSoft,
@@ -295,6 +399,19 @@ function makeStyles(c: ThemeColors) {
     },
     statFill: { height: '100%', backgroundColor: c.brand, borderRadius: 999 },
     statFillDone: { backgroundColor: c.green },
+
+    distBar: {
+      flexDirection: 'row',
+      height: 12,
+      borderRadius: 999,
+      overflow: 'hidden',
+      backgroundColor: c.card2,
+    },
+
+    deadlineSummary: { fontSize: 13, fontWeight: '800' },
+    deadlineRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    deadlineTitle: { flex: 1, color: c.text, fontSize: 14, fontWeight: '600' },
+    deadlineWhen: { fontSize: 12, fontWeight: '800' },
 
     completedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
     completedCheck: {

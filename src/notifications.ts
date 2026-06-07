@@ -48,9 +48,11 @@ export async function enableWeeklyReminder(): Promise<boolean> {
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-      weekday: 1,
+      // expo-notifications usa 1=domingo ... 7=sábado, então segunda-feira é 2.
+      weekday: 2,
       hour: 19,
       minute: 0,
+      channelId: 'default',
     },
   });
 
@@ -58,6 +60,16 @@ export async function enableWeeklyReminder(): Promise<boolean> {
     [REMINDERS_KEY, '1'],
     [REMINDER_ID_KEY, id],
   ]);
+
+  // Confirmação imediata pra deixar claro que ativou (o lembrete em si só chega na segunda).
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Lembrete ativado ✅',
+      body: 'Combinado! Te aviso toda segunda às 19h pra revisar suas promessas.',
+    },
+    trigger: null,
+  });
+
   return true;
 }
 

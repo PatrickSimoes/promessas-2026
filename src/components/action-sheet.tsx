@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ThemeColors, useThemeColors } from '../theme';
+import { BottomSheet } from './bottom-sheet';
 
 export type ActionSheetAction = {
   key: string;
@@ -23,77 +23,46 @@ export function ActionSheet({ visible, title, actions, onClose }: Props) {
   const styles = useMemo(() => makeStyles(c), [c]);
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      statusBarTranslucent
-      onRequestClose={onClose}
-    >
-      <Pressable style={styles.backdrop} onPress={onClose} />
+    <BottomSheet visible={visible} onClose={onClose}>
+      <View style={styles.inner}>
+        {title ? (
+          <Text style={styles.title} numberOfLines={2}>
+            {title}
+          </Text>
+        ) : null}
 
-      <View pointerEvents="box-none" style={styles.sheetWrap}>
-        <SafeAreaView edges={['bottom']} style={styles.sheet}>
-          <View style={styles.handle} />
-
-          {title ? (
-            <Text style={styles.title} numberOfLines={2}>
-              {title}
-            </Text>
-          ) : null}
-
-          {actions.map((action) => (
-            <Pressable
-              key={action.key}
-              onPress={() => {
-                onClose();
-                requestAnimationFrame(action.onPress);
-              }}
-              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-            >
-              <Text style={[styles.icon, action.destructive && styles.iconDestructive]}>
-                {action.icon}
-              </Text>
-              <Text style={[styles.label, action.destructive && styles.labelDestructive]}>
-                {action.label}
-              </Text>
-            </Pressable>
-          ))}
-
+        {actions.map((action) => (
           <Pressable
-            onPress={onClose}
-            style={({ pressed }) => [styles.cancel, pressed && styles.rowPressed]}
+            key={action.key}
+            onPress={() => {
+              onClose();
+              requestAnimationFrame(action.onPress);
+            }}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
           >
-            <Text style={styles.cancelText}>Cancelar</Text>
+            <Text style={[styles.icon, action.destructive && styles.iconDestructive]}>
+              {action.icon}
+            </Text>
+            <Text style={[styles.label, action.destructive && styles.labelDestructive]}>
+              {action.label}
+            </Text>
           </Pressable>
-        </SafeAreaView>
+        ))}
+
+        <Pressable
+          onPress={onClose}
+          style={({ pressed }) => [styles.cancel, pressed && styles.rowPressed]}
+        >
+          <Text style={styles.cancelText}>Cancelar</Text>
+        </Pressable>
       </View>
-    </Modal>
+    </BottomSheet>
   );
 }
 
 function makeStyles(c: ThemeColors) {
   return StyleSheet.create({
-    backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: c.overlay },
-
-    sheetWrap: { flex: 1, justifyContent: 'flex-end' },
-    sheet: {
-      backgroundColor: c.cardElevated,
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      paddingTop: 8,
-      paddingHorizontal: 8,
-      borderTopWidth: 1,
-      borderColor: c.border,
-    },
-    handle: {
-      alignSelf: 'center',
-      width: 40,
-      height: 4,
-      borderRadius: 999,
-      backgroundColor: c.borderStrong,
-      marginBottom: 8,
-    },
+    inner: { paddingHorizontal: 8 },
     title: {
       color: c.muted,
       fontSize: 13,

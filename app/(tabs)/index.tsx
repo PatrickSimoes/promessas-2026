@@ -1,29 +1,23 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionSheet, ActionSheetAction } from '../../src/components/action-sheet';
 import { AdBanner } from '../../src/components/ad-banner';
-import { EditModal } from '../../src/components/edit-modal';
+import { EditModal, EditModalSubmit } from '../../src/components/edit-modal';
+import { FilterSheet } from '../../src/components/filter-sheet';
 import { PromiseCard } from '../../src/components/promise-card';
 import { SearchBar } from '../../src/components/search-bar';
+import { SettingsSheet } from '../../src/components/settings-sheet';
 import { usePromises } from '../../src/promises-context';
+import { useSettings } from '../../src/settings-context';
 import { ThemeColors, useThemeColors } from '../../src/theme';
-import { CATEGORY_FILTERS, Category, CategoryFilter, TITLE_MAX_LENGTH } from '../../src/types';
 import { daysUntilNextYear, nextYearLabel, percentOfYearPassed } from '../../src/utils';
 
 export default function PromisesScreen() {
   const c = useThemeColors();
   const styles = useMemo(() => makeStyles(c), [c]);
+  const { categories } = useSettings();
   const {
     items,
     expandedIds,
@@ -37,18 +31,21 @@ export default function PromisesScreen() {
     toggleExpanded,
   } = usePromises();
 
-  const [text, setText] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('Todas');
+  const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
   const [menuItemId, setMenuItemId] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [query, setQuery] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  function submitNew() {
-    const title = text.trim();
-    if (!title) return;
-    const category: Category = categoryFilter === 'Todas' ? 'Pessoal' : categoryFilter;
-    addItem({ title, category });
-    setText('');
+  function toggleCategoryFilter(name: string) {
+    setSelectedCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
   }
 
   function confirmRemoveItem(id: string) {
@@ -81,7 +78,7 @@ export default function PromisesScreen() {
   const visibleItems = useMemo(() => {
     const q = query.trim().toLowerCase();
     const byCategory =
-      categoryFilter === 'Todas' ? items : items.filter((p) => p.category === categoryFilter);
+      selectedCats.size === 0 ? items : items.filter((p) => selectedCats.has(p.category));
 
     const bySearch = !q
       ? byCategory
@@ -96,10 +93,11 @@ export default function PromisesScreen() {
       if (a.done && b.done) return (b.completedAt ?? 0) - (a.completedAt ?? 0);
       return b.createdAt - a.createdAt;
     });
-  }, [items, query, categoryFilter]);
+  }, [items, query, selectedCats]);
 
   const menuItem = menuItemId ? (items.find((p) => p.id === menuItemId) ?? null) : null;
   const editingItem = editingItemId ? (items.find((p) => p.id === editingItemId) ?? null) : null;
+  const formVisible = creating || editingItem !== null;
 
   const menuActions: ActionSheetAction[] = menuItem
     ? [
@@ -125,137 +123,128 @@ export default function PromisesScreen() {
       ]
     : [];
 
+  function handleFormSubmit(changes: EditModalSubmit) {
+    if (editingItem) {
+      updateItem(editingItem.id, changes);
+    } else {
+      addItem(changes);
+    }
+    setEditingItemId(null);
+    setCreating(false);
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.flex1}
-      >
-        <View style={styles.container}>
-          <View style={styles.hero}>
-            <Text style={styles.kicker}>
-              ✨ {daysLeft} {daysLeft === 1 ? 'dia' : 'dias'} até {targetYear} • {yearPct}% do ano
-              vivido
-            </Text>
-            <Text style={styles.title}>Minhas Promessas</Text>
-            <Text style={styles.subtitle}>
-              {doneCount}/{total} concluídas • {progressPct}% • um passo por dia
-            </Text>
+      <View style={styles.container}>
+        <View style={styles.hero}>
+          <Pressable
+            onPress={() => setSettingsOpen(true)}
+            hitSlop={10}
+            style={({ pressed }) => [styles.configBtn, pressed && styles.pressed]}
+          >
+            <Ionicons name="settings-outline" size={20} color={c.muted} />
+          </Pressable>
 
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
-            </View>
+          <Text style={styles.kicker}>
+            ✨ {daysLeft} {daysLeft === 1 ? 'dia' : 'dias'} até {targetYear} • {yearPct}% do ano já
+            se passou
+          </Text>
+          <Text style={styles.title}>Minhas Promessas</Text>
+          <Text style={styles.subtitle}>
+            {doneCount}/{total} concluídas • {progressPct}% • um passo por dia
+          </Text>
+
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
           </View>
-
-          <View style={styles.chipsRow}>
-            {CATEGORY_FILTERS.map((cat) => {
-              const active = cat === categoryFilter;
-              return (
-                <Pressable
-                  key={cat}
-                  onPress={() => setCategoryFilter(cat)}
-                  style={({ pressed }) => [
-                    styles.chip,
-                    active && styles.chipActive,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{cat}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.inputWrap}>
-            <TextInput
-              style={styles.input}
-              value={text}
-              onChangeText={setText}
-              placeholder={
-                categoryFilter === 'Todas'
-                  ? 'Ex: aprender inglês, viajar, cuidar de mim...'
-                  : `Nova promessa em ${categoryFilter}...`
-              }
-              placeholderTextColor={c.muted}
-              returnKeyType="done"
-              onSubmitEditing={submitNew}
-              maxLength={TITLE_MAX_LENGTH}
-            />
-            <Pressable
-              onPress={submitNew}
-              disabled={!text.trim()}
-              style={({ pressed }) => [
-                styles.addButton,
-                !text.trim() && styles.addButtonDisabled,
-                pressed && text.trim() && styles.pressed,
-              ]}
-            >
-              <Text style={styles.addButtonText}>+</Text>
-            </Pressable>
-          </View>
-          {text.length >= TITLE_MAX_LENGTH - 20 ? (
-            <Text style={styles.charCount}>
-              {text.length}/{TITLE_MAX_LENGTH}
-            </Text>
-          ) : null}
-
-          <SearchBar
-            value={query}
-            onChange={setQuery}
-            resultCount={visibleItems.length}
-            totalCount={total}
-          />
-
-          <FlatList
-            style={styles.flex1}
-            data={visibleItems}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={[
-              styles.listContent,
-              visibleItems.length === 0 && styles.listEmpty,
-            ]}
-            keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={
-              query.trim() ? (
-                <View style={styles.emptyBox}>
-                  <Text style={styles.emptyTitle}>Nada encontrado</Text>
-                  <Text style={styles.emptyText}>
-                    Nenhuma promessa combina com &quot;{query.trim()}&quot;.
-                  </Text>
-                </View>
-              ) : categoryFilter !== 'Todas' && total > 0 ? (
-                <View style={styles.emptyBox}>
-                  <Text style={styles.emptyTitle}>Sem promessas em {categoryFilter}</Text>
-                  <Text style={styles.emptyText}>
-                    Escolha &quot;Todas&quot; ou comece uma promessa nova nesta categoria.
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.emptyBox}>
-                  <Text style={styles.emptyTitle}>Começa leve</Text>
-                  <Text style={styles.emptyText}>
-                    Escolha uma categoria e escreva uma promessa para o próximo ano.
-                  </Text>
-                </View>
-              )
-            }
-            renderItem={({ item }) => (
-              <PromiseCard
-                item={item}
-                expanded={expandedIds.has(item.id)}
-                onToggleExpanded={toggleExpanded}
-                onToggle={toggleItem}
-                onOpenMenu={setMenuItemId}
-                onAddSubtask={addSubtask}
-                onToggleSubtask={toggleSubtask}
-                onRequestDeleteSubtask={confirmRemoveSubtask}
-              />
-            )}
-          />
-
-          <AdBanner />
         </View>
-      </KeyboardAvoidingView>
+
+        <View style={styles.searchRow}>
+          <View style={styles.flex1}>
+            <SearchBar
+              value={query}
+              onChange={setQuery}
+              resultCount={visibleItems.length}
+              totalCount={total}
+            />
+          </View>
+          <Pressable
+            onPress={() => setFilterOpen(true)}
+            style={({ pressed }) => [
+              styles.filterBtn,
+              selectedCats.size > 0 && styles.filterBtnActive,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons
+              name="funnel-outline"
+              size={18}
+              color={selectedCats.size > 0 ? c.brand : c.muted}
+            />
+            {selectedCats.size > 0 ? (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{selectedCats.size}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        </View>
+
+        <FlatList
+          style={styles.flex1}
+          data={visibleItems}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[
+            styles.listContent,
+            visibleItems.length === 0 && styles.listEmpty,
+          ]}
+          keyboardShouldPersistTaps="handled"
+          ListEmptyComponent={
+            query.trim() ? (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyTitle}>Nada encontrado</Text>
+                <Text style={styles.emptyText}>
+                  Nenhuma promessa combina com &quot;{query.trim()}&quot;.
+                </Text>
+              </View>
+            ) : selectedCats.size > 0 && total > 0 ? (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyTitle}>Sem promessas nesses filtros</Text>
+                <Text style={styles.emptyText}>
+                  Ajuste o funil ou toque no + para criar uma promessa nova.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.emptyBox}>
+                <Text style={styles.emptyTitle}>Começa leve</Text>
+                <Text style={styles.emptyText}>
+                  Toque no + para escrever sua primeira promessa para o próximo ano.
+                </Text>
+              </View>
+            )
+          }
+          renderItem={({ item }) => (
+            <PromiseCard
+              item={item}
+              expanded={expandedIds.has(item.id)}
+              onToggleExpanded={toggleExpanded}
+              onToggle={toggleItem}
+              onOpenMenu={setMenuItemId}
+              onAddSubtask={addSubtask}
+              onToggleSubtask={toggleSubtask}
+              onRequestDeleteSubtask={confirmRemoveSubtask}
+            />
+          )}
+        />
+
+        <AdBanner />
+      </View>
+
+      <Pressable
+        onPress={() => setCreating(true)}
+        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+      >
+        <Ionicons name="add" size={30} color="#FFFFFF" />
+      </Pressable>
 
       <ActionSheet
         visible={menuItem !== null}
@@ -265,14 +254,25 @@ export default function PromisesScreen() {
       />
 
       <EditModal
-        visible={editingItem !== null}
+        visible={formVisible}
         item={editingItem}
-        onClose={() => setEditingItemId(null)}
-        onSubmit={(changes) => {
-          if (editingItem) updateItem(editingItem.id, changes);
+        onClose={() => {
           setEditingItemId(null);
+          setCreating(false);
         }}
+        onSubmit={handleFormSubmit}
       />
+
+      <FilterSheet
+        visible={filterOpen}
+        categories={categories}
+        selected={selectedCats}
+        onToggle={toggleCategoryFilter}
+        onClear={() => setSelectedCats(new Set())}
+        onClose={() => setFilterOpen(false)}
+      />
+
+      <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -290,7 +290,21 @@ function makeStyles(c: ThemeColors) {
       borderWidth: 1,
       borderColor: c.border,
     },
-    kicker: { color: c.muted, fontWeight: '700' },
+    configBtn: {
+      position: 'absolute',
+      top: 12,
+      right: 12,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.card2,
+      borderWidth: 1,
+      borderColor: c.border,
+      zIndex: 1,
+    },
+    kicker: { color: c.muted, fontWeight: '700', paddingRight: 40 },
     title: { color: c.text, fontSize: 22, fontWeight: '800', marginTop: 6 },
     subtitle: { color: c.muted, marginTop: 6 },
 
@@ -305,52 +319,34 @@ function makeStyles(c: ThemeColors) {
     },
     progressFill: { height: '100%', borderRadius: 999, backgroundColor: c.brandStrong },
 
-    chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    chip: {
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 999,
+    searchRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+    filterBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.card2,
       borderWidth: 1,
       borderColor: c.border,
-      backgroundColor: c.card2,
     },
-    chipActive: {
-      backgroundColor: 'rgba(167,139,250,0.18)',
+    filterBtnActive: {
+      backgroundColor: 'rgba(167,139,250,0.12)',
       borderColor: 'rgba(167,139,250,0.35)',
     },
-    chipText: { color: c.muted, fontWeight: '700' },
-    chipTextActive: { color: c.text },
-
-    inputWrap: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-    input: {
-      flex: 1,
-      height: 46,
-      borderRadius: 14,
-      paddingHorizontal: 14,
-      color: c.text,
-      backgroundColor: c.card2,
-      borderWidth: 1,
-      borderColor: c.border,
-    },
-    addButton: {
-      width: 46,
-      height: 46,
-      borderRadius: 14,
-      backgroundColor: c.brand,
-      borderWidth: 1,
-      borderColor: c.border,
+    filterBadge: {
+      position: 'absolute',
+      top: -4,
+      right: -4,
+      minWidth: 16,
+      height: 16,
+      paddingHorizontal: 4,
+      borderRadius: 999,
+      backgroundColor: c.brandStrong,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    addButtonDisabled: { backgroundColor: 'rgba(167,139,250,0.25)' },
-    addButtonText: { color: '#FFFFFF', fontSize: 22, fontWeight: '900' },
-    charCount: {
-      color: c.mutedSoft,
-      fontSize: 11,
-      fontWeight: '700',
-      textAlign: 'right',
-      marginTop: -4,
-    },
+    filterBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900' },
 
     listContent: { paddingTop: 6, paddingBottom: 12 },
     listEmpty: { flexGrow: 1, justifyContent: 'center' },
@@ -365,6 +361,24 @@ function makeStyles(c: ThemeColors) {
     emptyTitle: { color: c.text, fontSize: 16, fontWeight: '800' },
     emptyText: { color: c.muted, marginTop: 6, lineHeight: 18 },
 
-    pressed: { opacity: 0.9 },
+    fab: {
+      position: 'absolute',
+      right: 20,
+      bottom: 96,
+      width: 58,
+      height: 58,
+      borderRadius: 29,
+      backgroundColor: c.brandStrong,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 6,
+    },
+    fabPressed: { opacity: 0.85, transform: [{ scale: 0.96 }] },
+
+    pressed: { opacity: 0.7 },
   });
 }

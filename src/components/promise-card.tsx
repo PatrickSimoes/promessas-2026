@@ -8,7 +8,8 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { ThemeColors, getTagStyle, useThemeColors } from '../theme';
+import { useSettings } from '../settings-context';
+import { ThemeColors, tagStyle, useThemeColors } from '../theme';
 import { PromiseItem, Subtask } from '../types';
 import { daysUntil, deadlineLabel, formatShortDate } from '../utils';
 
@@ -35,6 +36,7 @@ export function PromiseCard({
 }: Props) {
   const c = useThemeColors();
   const styles = useMemo(() => makeStyles(c), [c]);
+  const { categoryColor } = useSettings();
   const [subText, setSubText] = useState('');
   const checkScale = useSharedValue(1);
 
@@ -93,7 +95,7 @@ export function PromiseCard({
           </Text>
 
           <View style={styles.metaRow}>
-            <View style={[styles.tag, getTagStyle(item.category)]}>
+            <View style={[styles.tag, tagStyle(categoryColor(item.category))]}>
               <Text style={styles.tagText}>{item.category}</Text>
             </View>
 
